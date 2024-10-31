@@ -6,7 +6,7 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/ansible-semaphore/semaphore/db"
+	"github.com/semaphoreui/semaphore/db"
 	trans "github.com/snikch/goodman/transaction"
 )
 
@@ -125,6 +125,7 @@ func resolveCapability(caps []string, resolved []string, uid string) {
 		case "template":
 			args := "[]"
 			desc := "Hello, World!"
+			branch := "main"
 			res, err := store.CreateTemplate(db.Template{
 				ProjectID:               userProject.ID,
 				InventoryID:             &inventoryID,
@@ -137,6 +138,7 @@ func resolveCapability(caps []string, resolved []string, uid string) {
 				Description:             &desc,
 				ViewID:                  &view.ID,
 				App:                     db.AppAnsible,
+				GitBranch:               &branch,
 			})
 
 			printError(err)

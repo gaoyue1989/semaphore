@@ -9,10 +9,10 @@ import (
 	"path"
 	"strconv"
 
-	"github.com/ansible-semaphore/semaphore/db"
-	"github.com/ansible-semaphore/semaphore/db_lib"
-	"github.com/ansible-semaphore/semaphore/pkg/task_logger"
-	"github.com/ansible-semaphore/semaphore/util"
+	"github.com/semaphoreui/semaphore/db"
+	"github.com/semaphoreui/semaphore/db_lib"
+	"github.com/semaphoreui/semaphore/pkg/task_logger"
+	"github.com/semaphoreui/semaphore/util"
 )
 
 type LocalJob struct {
@@ -340,6 +340,9 @@ func (t *LocalJob) getPlaybookArgs(username string, incomingVersion *string) (ar
 			args = append(args, fmt.Sprintf("--vault-id=%s@prompt", name))
 			inputs[fmt.Sprintf("Vault password (%s):", name)] = install.Password
 		}
+		if install.Script != "" {
+			args = append(args, fmt.Sprintf("--vault-id=%s@%s", name, install.Script))
+		}
 	}
 
 	extraVars, err := t.getEnvironmentExtraVarsJSON(username, incomingVersion)
@@ -399,7 +402,12 @@ func (t *LocalJob) Run(username string, incomingVersion *string) (err error) {
 
 	t.SetStatus(task_logger.TaskRunningStatus) // It is required for local mode. Don't delete
 
-	err = t.prepareRun()
+	environmentVariables, err := t.getEnvironmentENV()
+	if err != nil {
+		return
+	}
+
+	err = t.prepareRun(&environmentVariables)
 	if err != nil {
 		return err
 	}
@@ -421,11 +429,6 @@ func (t *LocalJob) Run(username string, incomingVersion *string) (err error) {
 		args, err = t.getShellArgs(username, incomingVersion)
 	}
 
-	if err != nil {
-		return
-	}
-
-	environmentVariables, err := t.getEnvironmentENV()
 	if err != nil {
 		return
 	}
@@ -457,12 +460,22 @@ func (t *LocalJob) Run(username string, incomingVersion *string) (err error) {
 
 }
 
-func (t *LocalJob) prepareRun() error {
+func (t *LocalJob) prepareRun(environmentVars *[]string) error {
 	t.Log("Preparing: " + strconv.Itoa(t.Task.ID))
 
 	if err := checkTmpDir(util.Config.TmpPath); err != nil {
 		t.Log("Creating tmp dir failed: " + err.Error())
 		return err
+	}
+
+	// Override git branch from template if set
+	if t.Template.GitBranch != nil && *t.Template.GitBranch != "" {
+		t.Repository.GitBranch = *t.Template.GitBranch
+	}
+
+	// Override git branch from task if set
+	if t.Task.GitBranch != nil && *t.Task.GitBranch != "" {
+		t.Repository.GitBranch = *t.Task.GitBranch
 	}
 
 	if t.Repository.GetType() == db.RepositoryLocal {
@@ -486,7 +499,7 @@ func (t *LocalJob) prepareRun() error {
 		return err
 	}
 
-	if err := t.App.InstallRequirements(); err != nil {
+	if err := t.App.InstallRequirements(environmentVars); err != nil {
 		t.Log("Running galaxy failed: " + err.Error())
 		return err
 	}
@@ -587,10 +600,16 @@ func (t *LocalJob) installVaultKeyFiles() (err error) {
 		}
 
 		var install db.AccessKeyInstallation
-		install, err = vault.Vault.Install(db.AccessKeyRoleAnsiblePasswordVault, t.Logger)
-		if err != nil {
-			return
+		if vault.Type == db.TemplateVaultPassword {
+			install, err = vault.Vault.Install(db.AccessKeyRoleAnsiblePasswordVault, t.Logger)
+			if err != nil {
+				return
+			}
 		}
+		if vault.Type == db.TemplateVaultScript && vault.Script != nil {
+			install.Script = *vault.Script
+		}
+
 		t.vaultFileInstallations[name] = install
 	}
 

@@ -1,13 +1,13 @@
 package db_lib
 
 import (
-	"github.com/ansible-semaphore/semaphore/util"
+	"github.com/semaphoreui/semaphore/util"
 	"os"
 	"path"
 	"time"
 
-	"github.com/ansible-semaphore/semaphore/db"
-	"github.com/ansible-semaphore/semaphore/pkg/task_logger"
+	"github.com/semaphoreui/semaphore/db"
+	"github.com/semaphoreui/semaphore/pkg/task_logger"
 )
 
 type GitRepositoryDirType int

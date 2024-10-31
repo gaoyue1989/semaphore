@@ -7,9 +7,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/ansible-semaphore/semaphore/db"
-	"github.com/ansible-semaphore/semaphore/pkg/task_logger"
-	"github.com/ansible-semaphore/semaphore/util"
+	"github.com/semaphoreui/semaphore/db"
+	"github.com/semaphoreui/semaphore/pkg/task_logger"
+	"github.com/semaphoreui/semaphore/util"
 )
 
 type RemoteJob struct {
@@ -95,7 +95,7 @@ func (t *RemoteJob) Run(username string, incomingVersion *string) (err error) {
 
 	for _, r := range runners {
 		n := t.taskPool.GetNumberOfRunningTasksOfRunner(r.ID)
-		if n > 0 && n < r.MaxParallelTasks {
+		if n < r.MaxParallelTasks || r.MaxParallelTasks == 0 {
 			runner = &r
 			break
 		}
